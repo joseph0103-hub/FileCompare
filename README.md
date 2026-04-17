@@ -59,3 +59,27 @@
 - 중앙에는 Panel을 별도로 구성하고 그 안에 btnCopyFromLeft, btnCopyFromRight 버튼을 배치하여 위치가 흐트러지지 않도록 설계하였다.
 - 좌우 영역 하단에는 ListView(lvwLeftDir, lvwRightDir)를 배치하여 이후 파일 목록을 출력할 수 있는 기반 UI를 완성하였다.
 - 컨트롤 배치와 이름을 일관성 있게 구성하였다.
+
+---
+
+## 3. 과제 2
+
+### 실행 화면
+
+![경로 입력](img/Assignment_2_input_path.png)
+![폴더선택결과](img/Assignment_2_Show_Result.png)
+![폴더내 파일 비교](img/Assignment_2_Compare_Result.png)
+![색상으로 파일비교](img/Assignment_2_Compare_ByColor.png)
+
+### 과제 내용
+- 좌측과 우측 영역에 폴더 경로를 입력하거나 선택할 수 있도록 TextBox와 Button을 구성한다.
+- 선택한 폴더의 파일 목록이 ListView에 표시되도록 구현한다.
+- 양쪽 폴더의 파일 목록을 동시에 표시하여 비교가 가능하도록 구성한다.
+- 파일 존재 여부 또는 차이에 따라 색상을 다르게 표시하여 구분할 수 있도록 한다.
+
+### 구현 내용과 기능 설명
+- 폴더 선택 기능과 파일 리스트 표시 기능을 중심으로 구현하였다.
+- Button 클릭 이벤트를 통해 FolderBrowserDialog를 사용하여 폴더를 선택하고 TextBox에 경로를 표시하도록 구현하였다.
+- 선택된 폴더 경로를 기준으로 Directory 클래스를 이용하여 파일 목록을 가져와 ListView에 출력하였다.
+- 좌측과 우측 ListView를 동일한 구조로 구성하여 파일 비교가 가능하도록 UI를 구성하였다.
+- 파일의 존재 여부 및 상태에 따라 ListView 항목의 색상을 변경하여 시각적으로 구분할 수 있도록 구현하였다.
