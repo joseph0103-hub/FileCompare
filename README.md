@@ -53,7 +53,7 @@
 
 
 ### 구현 내용과 기능 설명
-- SplitContainer를 중심으로 좌측(ListView + TextBox + Button)과 우측 영역을 대칭 구조로 구성하였다. :contentReference[oaicite:0]{index=0}
+- SplitContainer를 중심으로 좌측(ListView + TextBox + Button)과 우측 영역을 대칭 구조로 구성하였다.
 - Label(lblAppName)을 통해 프로그램 이름(File Compare)을 상단에 표시하여 UI의 목적을 명확히 하였다.
 - 각 영역에는 TextBox(txtLeftDir, txtRightDir)와 Button(btnLeftDir, btnRightDir)을 배치하여 폴더 경로를 입력하거나 선택할 수 있도록 구현하였다.
 - 중앙에는 Panel을 별도로 구성하고 그 안에 btnCopyFromLeft, btnCopyFromRight 버튼을 배치하여 위치가 흐트러지지 않도록 설계하였다.
