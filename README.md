@@ -66,7 +66,7 @@
 
 ### 실행 화면
 
-![경로 입력](img/Assignment_2_input_path.png)
+![경로 선택](img/Assignment_2_select_path.png)
 ![폴더선택결과](img/Assignment_2_Show_Result.png)
 ![폴더내 파일 비교](img/Assignment_2_Compare_Result.png)
 ![색상으로 파일비교](img/Assignment_2_Compare_ByColor.png)
