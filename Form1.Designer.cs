@@ -203,7 +203,7 @@ namespace FileCompare
             // pnlArrowLeft
             // 
             pnlArrowLeft.Controls.Add(btnCopyFromLeft);
-            pnlArrowLeft.Location = new System.Drawing.Point(300, 48);
+            pnlArrowLeft.Location = new System.Drawing.Point(299, 48);
             pnlArrowLeft.Name = "pnlArrowLeft";
             pnlArrowLeft.Size = new System.Drawing.Size(78, 35);
             pnlArrowLeft.TabIndex = 2;

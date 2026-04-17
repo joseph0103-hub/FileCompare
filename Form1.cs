@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
 using System.Linq;
@@ -51,41 +52,104 @@ namespace FileCompare
 
         private void RefreshBothLists()
         {
-            PopulateListView(lvwLeftDir, txtLeftDir.Text, txtRightDir.Text);
-            PopulateListView(lvwRightDir, txtRightDir.Text, txtLeftDir.Text);
+            PopulateRecursiveListView(lvwLeftDir, txtLeftDir.Text, txtRightDir.Text);
+            PopulateRecursiveListView(lvwRightDir, txtRightDir.Text, txtLeftDir.Text);
         }
 
-        private void PopulateListView(ListView targetListView, string sourceDir, string compareDir)
+        private void PopulateRecursiveListView(ListView targetListView, string sourceDir, string compareDir)
         {
             targetListView.Items.Clear();
             if (string.IsNullOrWhiteSpace(sourceDir) || !Directory.Exists(sourceDir)) return;
 
-            FileInfo[] files = new DirectoryInfo(sourceDir)
-                .GetFiles("*", SearchOption.TopDirectoryOnly)
-                .OrderBy(f => f.Name, StringComparer.CurrentCultureIgnoreCase)
-                .ToArray();
+            List<EntryInfo> entries = GetEntries(sourceDir);
 
-            foreach (FileInfo file in files)
+            foreach (EntryInfo entry in entries.OrderBy(e => e.SortKey, StringComparer.CurrentCultureIgnoreCase))
             {
-                ListViewItem item = new ListViewItem(file.Name);
-                item.SubItems.Add(ToDisplaySize(file.Length));
-                item.SubItems.Add(file.LastWriteTime.ToString("yyyy-MM-dd HH:mm"));
-                item.ForeColor = GetFileColor(file, compareDir);
+                ListViewItem item = new ListViewItem(entry.DisplayName);
+                item.SubItems.Add(entry.DisplaySize);
+                item.SubItems.Add(entry.ModifiedTime.ToString("yyyy-MM-dd HH:mm"));
+                item.Tag = entry;
+                item.ForeColor = GetEntryColor(entry, compareDir);
                 targetListView.Items.Add(item);
             }
         }
 
-        private Color GetFileColor(FileInfo sourceFile, string compareDir)
+        private List<EntryInfo> GetEntries(string rootDir)
         {
-            if (string.IsNullOrWhiteSpace(compareDir) || !Directory.Exists(compareDir)) return Color.Black;
+            List<EntryInfo> results = new List<EntryInfo>();
 
-            string targetPath = Path.Combine(compareDir, sourceFile.Name);
-            if (!File.Exists(targetPath)) return Color.Red;
+            foreach (string dir in Directory.GetDirectories(rootDir, "*", SearchOption.AllDirectories))
+            {
+                DirectoryInfo di = new DirectoryInfo(dir);
+                string relative = GetRelativePath(rootDir, dir);
 
-            FileInfo targetFile = new FileInfo(targetPath);
-            if (sourceFile.LastWriteTime > targetFile.LastWriteTime) return Color.Blue;
-            if (sourceFile.LastWriteTime < targetFile.LastWriteTime) return Color.Gray;
+                results.Add(new EntryInfo
+                {
+                    SortKey = relative,
+                    DisplayName = "[DIR] " + relative,
+                    RelativePath = relative,
+                    FullPath = dir,
+                    IsDirectory = true,
+                    DisplaySize = "<DIR>",
+                    ModifiedTime = di.LastWriteTime
+                });
+            }
+
+            foreach (string file in Directory.GetFiles(rootDir, "*", SearchOption.AllDirectories))
+            {
+                FileInfo fi = new FileInfo(file);
+                string relative = GetRelativePath(rootDir, file);
+
+                results.Add(new EntryInfo
+                {
+                    SortKey = relative,
+                    DisplayName = relative,
+                    RelativePath = relative,
+                    FullPath = file,
+                    IsDirectory = false,
+                    DisplaySize = ToDisplaySize(fi.Length),
+                    ModifiedTime = fi.LastWriteTime
+                });
+            }
+
+            return results;
+        }
+
+        private Color GetEntryColor(EntryInfo sourceEntry, string compareRoot)
+        {
+            if (string.IsNullOrWhiteSpace(compareRoot) || !Directory.Exists(compareRoot))
+                return Color.Black;
+
+            string comparePath = Path.Combine(compareRoot, sourceEntry.RelativePath);
+
+            if (sourceEntry.IsDirectory)
+            {
+                if (!Directory.Exists(comparePath)) return Color.Red;
+
+                DateTime targetTime = new DirectoryInfo(comparePath).LastWriteTime;
+                if (sourceEntry.ModifiedTime > targetTime) return Color.Blue;
+                if (sourceEntry.ModifiedTime < targetTime) return Color.Gray;
+                return Color.Black;
+            }
+
+            if (!File.Exists(comparePath)) return Color.Red;
+
+            DateTime fileTargetTime = File.GetLastWriteTime(comparePath);
+            if (sourceEntry.ModifiedTime > fileTargetTime) return Color.Blue;
+            if (sourceEntry.ModifiedTime < fileTargetTime) return Color.Gray;
             return Color.Black;
+        }
+
+        private string GetRelativePath(string rootDir, string path)
+        {
+            Uri rootUri = new Uri(AppendDirectorySeparator(rootDir));
+            Uri pathUri = new Uri(path);
+            return Uri.UnescapeDataString(rootUri.MakeRelativeUri(pathUri).ToString()).Replace('/', '\\');
+        }
+
+        private string AppendDirectorySeparator(string path)
+        {
+            return path.EndsWith("\\") ? path : path + "\\";
         }
 
         private string ToDisplaySize(long length)
@@ -96,17 +160,17 @@ namespace FileCompare
 
         private void btnCopyFromLeft_Click(object sender, EventArgs e)
         {
-            CopySelectedFile(lvwLeftDir, txtLeftDir.Text, txtRightDir.Text);
+            CopySelectedEntry(lvwLeftDir, txtLeftDir.Text, txtRightDir.Text);
         }
 
         private void btnCopyFromRight_Click(object sender, EventArgs e)
         {
-            CopySelectedFile(lvwRightDir, txtRightDir.Text, txtLeftDir.Text);
+            CopySelectedEntry(lvwRightDir, txtRightDir.Text, txtLeftDir.Text);
         }
 
-        private void CopySelectedFile(ListView listView, string sourceDir, string targetDir)
+        private void CopySelectedEntry(ListView listView, string sourceRoot, string targetRoot)
         {
-            if (!Directory.Exists(sourceDir) || !Directory.Exists(targetDir))
+            if (!Directory.Exists(sourceRoot) || !Directory.Exists(targetRoot))
             {
                 MessageBox.Show("양쪽 폴더를 먼저 선택하세요.", "안내", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
@@ -114,36 +178,79 @@ namespace FileCompare
 
             if (listView.SelectedItems.Count == 0)
             {
-                MessageBox.Show("복사할 파일을 먼저 선택하세요.", "안내", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show("복사할 항목을 먼저 선택하세요.", "안내", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
 
-            string fileName = listView.SelectedItems[0].Text;
-            string sourcePath = Path.Combine(sourceDir, fileName);
-            string targetPath = Path.Combine(targetDir, fileName);
+            EntryInfo entry = (EntryInfo)listView.SelectedItems[0].Tag;
+            string targetPath = Path.Combine(targetRoot, entry.RelativePath);
 
-            if (!File.Exists(sourcePath))
+            if (entry.IsDirectory)
             {
-                MessageBox.Show("원본 파일을 찾을 수 없습니다.\n" + sourcePath, "오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                return;
+                if (Directory.Exists(targetPath))
+                {
+                    string msg =
+                        "동일한 이름의 폴더가 이미 존재합니다.\n\n" +
+                        "원본 수정일: " + entry.ModifiedTime.ToString("yyyy-MM-dd HH:mm:ss") + "\n" +
+                        "대상 수정일: " + new DirectoryInfo(targetPath).LastWriteTime.ToString("yyyy-MM-dd HH:mm:ss") + "\n\n" +
+                        "하위 내용까지 덮어쓰시겠습니까?";
+                    if (MessageBox.Show(msg, "폴더 복사 확인", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
+                        return;
+                }
+
+                CopyDirectory(entry.FullPath, targetPath);
+            }
+            else
+            {
+                string parent = Path.GetDirectoryName(targetPath);
+                if (!Directory.Exists(parent)) Directory.CreateDirectory(parent);
+
+                if (File.Exists(targetPath))
+                {
+                    string msg =
+                        "동일한 이름의 파일이 이미 존재합니다.\n\n" +
+                        "원본 수정일: " + entry.ModifiedTime.ToString("yyyy-MM-dd HH:mm:ss") + "\n" +
+                        "대상 수정일: " + File.GetLastWriteTime(targetPath).ToString("yyyy-MM-dd HH:mm:ss") + "\n\n" +
+                        "덮어쓰시겠습니까?";
+                    if (MessageBox.Show(msg, "파일 복사 확인", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
+                        return;
+                }
+
+                File.Copy(entry.FullPath, targetPath, true);
             }
 
-            if (File.Exists(targetPath))
-            {
-                DateTime sourceTime = File.GetLastWriteTime(sourcePath);
-                DateTime targetTime = File.GetLastWriteTime(targetPath);
-                string message =
-                    "동일한 이름의 파일이 반대쪽 폴더에 이미 있습니다.\n\n" +
-                    "원본 수정일: " + sourceTime.ToString("yyyy-MM-dd HH:mm:ss") + "\n" +
-                    "대상 수정일: " + targetTime.ToString("yyyy-MM-dd HH:mm:ss") + "\n\n" +
-                    "덮어쓰시겠습니까?";
-
-                if (MessageBox.Show(message, "덮어쓰기 확인", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
-                    return;
-            }
-
-            File.Copy(sourcePath, targetPath, true);
             RefreshBothLists();
+        }
+
+        private void CopyDirectory(string sourceDir, string targetDir)
+        {
+            Directory.CreateDirectory(targetDir);
+
+            foreach (string dir in Directory.GetDirectories(sourceDir, "*", SearchOption.AllDirectories))
+            {
+                string relative = GetRelativePath(sourceDir, dir);
+                Directory.CreateDirectory(Path.Combine(targetDir, relative));
+            }
+
+            foreach (string file in Directory.GetFiles(sourceDir, "*", SearchOption.AllDirectories))
+            {
+                string relative = GetRelativePath(sourceDir, file);
+                string targetFile = Path.Combine(targetDir, relative);
+                string parent = Path.GetDirectoryName(targetFile);
+                if (!Directory.Exists(parent)) Directory.CreateDirectory(parent);
+                File.Copy(file, targetFile, true);
+            }
+        }
+
+        private class EntryInfo
+        {
+            public string SortKey;
+            public string DisplayName;
+            public string RelativePath;
+            public string FullPath;
+            public bool IsDirectory;
+            public string DisplaySize;
+            public DateTime ModifiedTime;
         }
     }
 }
